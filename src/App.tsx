@@ -5,7 +5,13 @@ import { supabase } from './lib/supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const getAIClient = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY is not set. Please configure it in your environment variables.');
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 const MONTHS = [
   { value: '01', label: 'Januari' },
@@ -404,6 +410,7 @@ export default function App() {
     try {
       const base64Data = image.split(',')[1];
       
+      const ai = getAIClient();
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: {
