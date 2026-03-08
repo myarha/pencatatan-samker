@@ -1,0 +1,5 @@
+{
+  "name": "AI Image Reader",
+  "description": "A responsive web application that reads images from camera or upload using Gemini AI.",
+  "requestFramePermissions": ["camera"]
+}
