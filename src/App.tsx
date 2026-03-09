@@ -110,7 +110,11 @@ export default function App() {
         
       if (error) {
         console.error('Error fetching transactions:', error);
-        alert('Gagal mengambil data dari database: ' + error.message);
+        if (error.message === 'Failed to fetch') {
+          alert('Gagal terhubung ke database. Pastikan URL Supabase dan Anon Key di pengaturan Vercel (Environment Variables) sudah benar dan project Supabase Anda dalam keadaan aktif.');
+        } else {
+          alert('Gagal mengambil data dari database: ' + error.message);
+        }
         return;
       }
       if (data) {
