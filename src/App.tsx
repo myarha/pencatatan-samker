@@ -40,7 +40,7 @@ interface TaxData {
   id?: string;
   username?: string;
   tanggalInput?: string;
-  tanggalBayar: string;
+  tanggalTetap: string;
   nomorPolisi: string;
   nama: string;
   masaPajak: string;
@@ -155,8 +155,8 @@ export default function App() {
     let trxMonth = '';
     let trxYear = '';
     
-    if (trx.tanggalBayar) {
-      const parts = String(trx.tanggalBayar).split(/[-/ ]/);
+    if (trx.tanggalTetap) {
+      const parts = String(trx.tanggalTetap).split(/[-/ ]/);
       if (parts.length >= 3) {
         if (parts[0].length === 4) {
           // Format YYYY-MM-DD
@@ -244,13 +244,13 @@ export default function App() {
       return new Date(0).getTime();
     };
 
-    // Sort data by tanggalBayar ascending
+    // Sort data by tanggalTetap ascending
     const sortedTransactions = [...filteredTransactions].sort((a, b) => {
-      return parseDate(a.tanggalBayar) - parseDate(b.tanggalBayar);
+      return parseDate(a.tanggalTetap) - parseDate(b.tanggalTetap);
     });
 
     // Table Data
-    const tableColumn = ["No", "Tanggal Bayar", "Nomor Polisi", "Nama", "PKB", "Opsen PKB", "Tunggakan"];
+    const tableColumn = ["No", "Tanggal Tetap", "Nomor Polisi", "Nama", "PKB", "Opsen PKB", "Tunggakan"];
     const tableRows: any[] = [];
 
     let totalPkb = 0;
@@ -261,7 +261,7 @@ export default function App() {
     sortedTransactions.forEach((trx, index) => {
       const rowData = [
         index + 1,
-        trx.tanggalBayar,
+        trx.tanggalTetap,
         trx.nomorPolisi,
         trx.nama,
         trx.jumlahPkb,
@@ -357,7 +357,7 @@ export default function App() {
   const [editFormErrors, setEditFormErrors] = useState<{[key: string]: string}>({});
   const [aiFormErrors, setAiFormErrors] = useState<{[key: string]: string}>({});
   const [manualFormData, setManualFormData] = useState<TaxData>({
-    tanggalBayar: new Date().toISOString().split('T')[0],
+    tanggalTetap: new Date().toISOString().split('T')[0],
     nomorPolisi: '',
     nama: '',
     masaPajak: '1 TAHUN 0 BULAN',
@@ -444,7 +444,7 @@ export default function App() {
               },
             },
             {
-              text: 'Identifikasi dokumen SSPD/Notice Pajak ini secara cepat dan akurat. FOKUS UTAMA: Nomor Polisi, Nama Pemilik, Masa Pajak, Tanggal Bayar, PKB, dan Opsen PKB. PENTING: 1) Jika gambar sedikit buram, lakukan inferensi terbaik berdasarkan konteks huruf/angka yang terlihat. 2) Teks pada dokumen mungkin bergeser atau tidak sejajar dengan baris/kolomnya. Gunakan pola data (seperti format plat nomor 1-2 huruf, 1-4 angka, 1-3 huruf) untuk mengidentifikasi nilai yang benar. 3) Jika BUKAN SSPD/Notice Pajak, set isValidSspd: false. Jika YA, set isValidSspd: true dan ekstrak datanya. Pastikan mengambil nilai PKB dan Opsen PKB HANYA dari kolom "JUMLAH" (paling kanan). Untuk status tunggakan, perhatikan dengan teliti angka pada kolom "SANKSI ADMINISTRATIF" khusus untuk baris PKB dan OPSEN PKB. 4) FORMAT TANGGAL WAJIB: DD-MM-YYYY (contoh: 09-03-2025). Ubah format jika di dokumen tertulis berbeda.',
+              text: 'Identifikasi dokumen SSPD/Notice Pajak ini secara cepat dan akurat. FOKUS UTAMA: Nomor Polisi, Nama Pemilik, Masa Pajak, Tanggal Tetap, PKB, dan Opsen PKB. PENTING: 1) Jika gambar sedikit buram, lakukan inferensi terbaik berdasarkan konteks huruf/angka yang terlihat. 2) Teks pada dokumen mungkin bergeser atau tidak sejajar dengan baris/kolomnya. Gunakan pola data (seperti format plat nomor 1-2 huruf, 1-4 angka, 1-3 huruf) untuk mengidentifikasi nilai yang benar. 3) Jika BUKAN SSPD/Notice Pajak, set isValidSspd: false. Jika YA, set isValidSspd: true dan ekstrak datanya. Pastikan mengambil nilai PKB dan Opsen PKB HANYA dari kolom "JUMLAH" (paling kanan). 4) Untuk status tunggakan, perhatikan SANGAT TELITI angka pada kolom "SANKSI ADMINISTRATIF". Jika di kolom sanksi administratif SEMUA nilai adalah 0, maka PASTI Non Tunggakan (isTunggakan: false). Jika ada SALAH SATU nilai yang bukan 0, TERUTAMA pada baris PKB, OPSEN PKB, atau SWDKLLJ di kolom sanksi administratif, maka DIPASTIKAN SSPD tersebut adalah Tunggakan (isTunggakan: true). 5) FORMAT TANGGAL WAJIB: DD-MM-YYYY (contoh: 09-03-2025). Ubah format jika di dokumen tertulis berbeda.',
             },
           ],
         },
@@ -470,9 +470,9 @@ export default function App() {
                 type: Type.STRING, 
                 description: "Masa Pajak (contoh: 1 Tahun 0 bulan)" 
               },
-              tanggalBayar: {
+              tanggalTetap: {
                 type: Type.STRING,
-                description: "Tanggal Bayar, cari di bagian bawah pada kolom TGL. BAYAR. WAJIB FORMAT: DD-MM-YYYY (contoh: 27-02-2026)"
+                description: "Tanggal Tetap, cari di bagian tengah pada kolom TGL. TETAP. WAJIB FORMAT: DD-MM-YYYY (contoh: 27-02-2026)"
               },
               jumlahPkb: { 
                 type: Type.STRING, 
@@ -484,10 +484,10 @@ export default function App() {
               },
               isTunggakan: {
                 type: Type.BOOLEAN,
-                description: "True jika terdapat angka lebih dari 0 pada kolom SANKSI ADMINISTRATIF khusus untuk baris PKB, OPSEN PKB, atau SWDKLLJ. Set False jika SEMUA baris di kolom SANKSI ADMINISTRATIF bernilai 0 atau kosong (walaupun baris BBN KB bernilai 0, jika baris PKB ada sanksi, maka True)."
+                description: "True jika terdapat nilai lebih dari 0 pada kolom SANKSI ADMINISTRATIF (terutama pada baris PKB, OPSEN PKB, atau SWDKLLJ). False jika SEMUA baris di kolom SANKSI ADMINISTRATIF bernilai 0."
               }
             },
-            required: ["nomorPolisi", "nama", "masaPajak", "tanggalBayar", "jumlahPkb", "jumlahOpsenPkb", "isTunggakan"]
+            required: ["nomorPolisi", "nama", "masaPajak", "tanggalTetap", "jumlahPkb", "jumlahOpsenPkb", "isTunggakan"]
           }
         }
       });
@@ -523,7 +523,7 @@ export default function App() {
     const yyyy = now.getFullYear();
     
     setManualFormData({
-      tanggalBayar: `${dd}-${mm}-${yyyy}`,
+      tanggalTetap: `${dd}-${mm}-${yyyy}`,
       nomorPolisi: '',
       nama: '',
       masaPajak: '1 TAHUN 0 BULAN',
@@ -540,14 +540,14 @@ export default function App() {
     if (!data.nomorPolisi) errors.nomorPolisi = 'Nomor Polisi wajib diisi';
     if (!data.nama) errors.nama = 'Nama Pemilik wajib diisi';
     
-    if (!data.tanggalBayar) {
-      errors.tanggalBayar = 'Tanggal Bayar wajib diisi';
+    if (!data.tanggalTetap) {
+      errors.tanggalTetap = 'Tanggal Tetap wajib diisi';
     } else {
       const dateRegex = /^(\d{2})-(\d{2})-(\d{4})$/;
-      const match = data.tanggalBayar.match(dateRegex);
+      const match = data.tanggalTetap.match(dateRegex);
       
       if (!match) {
-        errors.tanggalBayar = 'Format tanggal harus DD-MM-YYYY (contoh: 09-03-2025)';
+        errors.tanggalTetap = 'Format tanggal harus DD-MM-YYYY (contoh: 09-03-2025)';
       } else {
         const day = parseInt(match[1], 10);
         const month = parseInt(match[2], 10);
@@ -561,12 +561,12 @@ export default function App() {
           dateObj.getMonth() + 1 !== month ||
           dateObj.getDate() !== day
         ) {
-          errors.tanggalBayar = 'Tanggal tidak valid (cek tanggal/bulan/tahun)';
+          errors.tanggalTetap = 'Tanggal tidak valid (cek tanggal/bulan/tahun)';
         }
         
         // Cek range tahun yang masuk akal
         if (year < 2000 || year > 2100) {
-             errors.tanggalBayar = 'Tahun tidak valid (harus antara 2000-2100)';
+             errors.tanggalTetap = 'Tahun tidak valid (harus antara 2000-2100)';
         }
       }
     }
@@ -725,7 +725,7 @@ export default function App() {
       finalValue = String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     }
 
-    if (field === 'tanggalBayar') {
+    if (field === 'tanggalTetap') {
       // Allow only digits and dashes
       finalValue = String(value || '').replace(/[^0-9-]/g, '');
       // Auto-format DD-MM-YYYY
@@ -774,7 +774,7 @@ export default function App() {
         finalValue = String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       }
 
-      if (field === 'tanggalBayar') {
+      if (field === 'tanggalTetap') {
         // Allow only digits and dashes
         finalValue = String(value || '').replace(/[^0-9-]/g, '');
         // Auto-format DD-MM-YYYY
@@ -804,7 +804,7 @@ export default function App() {
         finalValue = String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       }
 
-      if (field === 'tanggalBayar') {
+      if (field === 'tanggalTetap') {
         // Allow only digits and dashes
         finalValue = String(value || '').replace(/[^0-9-]/g, '');
         // Auto-format DD-MM-YYYY
@@ -1022,7 +1022,7 @@ export default function App() {
           nomorPolisi: editingTransaction.nomorPolisi,
           nama: editingTransaction.nama,
           masaPajak: editingTransaction.masaPajak,
-          tanggalBayar: editingTransaction.tanggalBayar,
+          tanggalTetap: editingTransaction.tanggalTetap,
           jumlahPkb: editingTransaction.jumlahPkb,
           jumlahOpsenPkb: editingTransaction.jumlahOpsenPkb,
           isTunggakan: editingTransaction.isTunggakan
@@ -1265,10 +1265,10 @@ export default function App() {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <InputField 
-                      label="Tanggal Bayar" 
-                      value={formData?.tanggalBayar || ''} 
-                      onChange={(e) => handleInputChange('tanggalBayar', e.target.value)} 
-                      error={aiFormErrors.tanggalBayar}
+                      label="Tanggal Tetap" 
+                      value={formData?.tanggalTetap || ''} 
+                      onChange={(e) => handleInputChange('tanggalTetap', e.target.value)} 
+                      error={aiFormErrors.tanggalTetap}
                     />
                     <InputField 
                       label="Masa Pajak" 
@@ -1444,7 +1444,7 @@ export default function App() {
                   {filteredTransactions.map((trx) => (
                     <div key={trx.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                       <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 flex justify-between items-center">
-                        <span className="text-xs font-medium text-slate-500">{trx.tanggalBayar || trx.tanggalInput}</span>
+                        <span className="text-xs font-medium text-slate-500">{trx.tanggalTetap || '-'}</span>
                         <div className="flex items-center gap-3">
                           {trx.imageData && (
                             <button 
@@ -1580,11 +1580,11 @@ export default function App() {
                 error={editFormErrors.nama}
               />
               <InputField 
-                label="Tanggal Bayar" 
-                value={editingTransaction.tanggalBayar || ''} 
-                onChange={(e) => handleEditInputChange('tanggalBayar', e.target.value)} 
+                label="Tanggal Tetap" 
+                value={editingTransaction.tanggalTetap || ''} 
+                onChange={(e) => handleEditInputChange('tanggalTetap', e.target.value)} 
                 placeholder="Contoh: 09-03-2025"
-                error={editFormErrors.tanggalBayar}
+                error={editFormErrors.tanggalTetap}
               />
               <InputField 
                 label="Masa Pajak" 
@@ -1686,11 +1686,11 @@ export default function App() {
                 error={manualFormErrors.nama}
               />
               <InputField 
-                label="Tanggal Bayar" 
-                value={manualFormData.tanggalBayar || ''} 
-                onChange={(e) => handleManualInputChange('tanggalBayar', e.target.value)} 
+                label="Tanggal Tetap" 
+                value={manualFormData.tanggalTetap || ''} 
+                onChange={(e) => handleManualInputChange('tanggalTetap', e.target.value)} 
                 placeholder="Contoh: 09-03-2025"
-                error={manualFormErrors.tanggalBayar}
+                error={manualFormErrors.tanggalTetap}
               />
               <InputField 
                 label="Masa Pajak" 
