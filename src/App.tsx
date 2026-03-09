@@ -53,8 +53,26 @@ interface TaxData {
 type Tab = 'input' | 'history';
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    const session = localStorage.getItem('auth_session');
+    if (session) {
+      try {
+        const { expiry } = JSON.parse(session);
+        if (new Date().getTime() < expiry) return true;
+      } catch (e) {}
+    }
+    return false;
+  });
+  const [currentUser, setCurrentUser] = useState(() => {
+    const session = localStorage.getItem('auth_session');
+    if (session) {
+      try {
+        const { username, expiry } = JSON.parse(session);
+        if (new Date().getTime() < expiry) return username;
+      } catch (e) {}
+    }
+    return '';
+  });
   const [activeTab, setActiveTab] = useState<Tab>('input');
   const [transactions, setTransactions] = useState<TaxData[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
@@ -1040,6 +1058,8 @@ export default function App() {
     return <Login onLogin={(username) => {
       setCurrentUser(username);
       setIsAuthenticated(true);
+      const expiry = new Date().getTime() + 24 * 60 * 60 * 1000; // 24 jam
+      localStorage.setItem('auth_session', JSON.stringify({ username, expiry }));
     }} />;
   }
 
@@ -1794,6 +1814,7 @@ export default function App() {
                     setCurrentUser('');
                     setTransactions([]);
                     setLogoutConfirm(false);
+                    localStorage.removeItem('auth_session');
                   }}
                   className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 px-4 rounded-xl transition-colors shadow-sm active:scale-[0.98]"
                 >
@@ -1887,6 +1908,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1899,7 +1921,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -1914,6 +1936,9 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       return;
     }
 
+    setIsLoggingIn(true);
+    // Simulasi loading animasi
+    await new Promise(resolve => setTimeout(resolve, 1500));
     onLogin(username);
   };
 
@@ -2019,9 +2044,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             <button
               type="submit"
-              className="w-full mt-8 bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-red-600/20 active:scale-[0.98] uppercase tracking-wider text-sm flex items-center justify-center"
+              disabled={isLoggingIn}
+              className="w-full mt-8 bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-2xl transition-all shadow-lg shadow-red-600/20 active:scale-[0.98] uppercase tracking-wider text-sm flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              Masuk
+              {isLoggingIn ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Memproses...
+                </>
+              ) : (
+                'Masuk'
+              )}
             </button>
           </form>
         </div>
