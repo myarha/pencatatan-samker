@@ -350,6 +350,8 @@ export default function App() {
   const [mimeType, setMimeType] = useState<string | null>(null);
   const [formData, setFormData] = useState<TaxData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [isExtractingLong, setIsExtractingLong] = useState(false);
+  const currentExtractionIdRef = useRef<number>(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManualInputModal, setShowManualInputModal] = useState(false);
@@ -426,15 +428,25 @@ export default function App() {
     if (!image || !mimeType) return;
     
     setLoading(true);
+    setIsExtractingLong(false);
     setError(null);
     setFormData(null);
+    
+    currentExtractionIdRef.current += 1;
+    const extractionId = currentExtractionIdRef.current;
+    
+    const timeoutId = setTimeout(() => {
+      if (currentExtractionIdRef.current === extractionId) {
+        setIsExtractingLong(true);
+      }
+    }, 12000); // Tampilkan konfirmasi setelah 12 detik agar AI punya waktu merespon dokumen salah lebih cepat
     
     try {
       const base64Data = image.split(',')[1];
       
       const ai = getAIClient();
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.1-flash-lite-preview',
         contents: {
           parts: [
             {
@@ -444,12 +456,11 @@ export default function App() {
               },
             },
             {
-              text: 'Identifikasi dokumen SSPD/Notice Pajak ini secara cepat dan akurat. FOKUS UTAMA: Nomor Polisi, Nama Pemilik, Masa Pajak, Tanggal Tetap, PKB, dan Opsen PKB. PENTING: 1) Jika gambar sedikit buram, lakukan inferensi terbaik berdasarkan konteks huruf/angka yang terlihat. 2) Teks pada dokumen mungkin bergeser atau tidak sejajar dengan baris/kolomnya. Gunakan pola data (seperti format plat nomor 1-2 huruf, 1-4 angka, 1-3 huruf) untuk mengidentifikasi nilai yang benar. 3) Jika BUKAN SSPD/Notice Pajak, set isValidSspd: false. Jika YA, set isValidSspd: true dan ekstrak datanya. Pastikan mengambil nilai PKB dan Opsen PKB HANYA dari kolom "JUMLAH" (paling kanan). 4) Untuk status tunggakan, perhatikan SANGAT TELITI angka pada kolom "SANKSI ADMINISTRATIF". Jika di kolom sanksi administratif SEMUA nilai adalah 0, maka PASTI Non Tunggakan (isTunggakan: false). Jika ada SALAH SATU nilai yang bukan 0, TERUTAMA pada baris PKB, OPSEN PKB, atau SWDKLLJ di kolom sanksi administratif, maka DIPASTIKAN SSPD tersebut adalah Tunggakan (isTunggakan: true). 5) FORMAT TANGGAL WAJIB: DD-MM-YYYY (contoh: 09-03-2025). Ubah format jika di dokumen tertulis berbeda.',
+              text: 'PERIKSA VALIDITAS TERLEBIH DAHULU: Jika gambar ini BUKAN dokumen SSPD/Notice Pajak kendaraan yang sah, segera set isValidSspd: false dan abaikan semua instruksi ekstraksi lainnya. Jika YA, lakukan identifikasi secara cepat dan akurat. FOKUS UTAMA: Nomor Polisi, Nama Pemilik, Masa Pajak, Tanggal Tetap, PKB, dan Opsen PKB. PENTING: 1) Jika gambar sedikit buram, lakukan inferensi terbaik berdasarkan konteks huruf/angka yang terlihat. 2) Teks pada dokumen mungkin bergeser atau tidak sejajar. Gunakan pola data (seperti format plat nomor) untuk mengidentifikasi nilai yang benar. 3) Pastikan mengambil nilai PKB dan Opsen PKB HANYA dari kolom "JUMLAH" (paling kanan). 4) Untuk status tunggakan, perhatikan SANGAT TELITI angka pada kolom "SANKSI ADMINISTRATIF". Jika SEMUA nilai adalah 0, maka isTunggakan: false. Jika ada SALAH SATU nilai bukan 0, maka isTunggakan: true. 5) FORMAT TANGGAL WAJIB: DD-MM-YYYY.',
             },
           ],
         },
         config: {
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           responseMimeType: 'application/json',
           responseSchema: {
             type: Type.OBJECT,
@@ -492,6 +503,12 @@ export default function App() {
         }
       });
       
+      clearTimeout(timeoutId);
+      
+      if (currentExtractionIdRef.current !== extractionId) {
+        return; // Dibatalkan oleh user
+      }
+      
       if (response.text) {
         const parsedData = JSON.parse(response.text);
         
@@ -509,10 +526,17 @@ export default function App() {
         setError('Gagal mengekstrak data dari gambar.');
       }
     } catch (err) {
+      clearTimeout(timeoutId);
+      if (currentExtractionIdRef.current !== extractionId) {
+        return; // Dibatalkan oleh user
+      }
       console.error('Error analyzing image:', err);
       setError('Terjadi kesalahan saat menganalisis gambar. Pastikan gambar jelas dan coba lagi.');
     } finally {
-      setLoading(false);
+      if (currentExtractionIdRef.current === extractionId) {
+        setLoading(false);
+        setIsExtractingLong(false);
+      }
     }
   };
 
@@ -1048,10 +1072,13 @@ export default function App() {
   };
 
   const cancelInput = () => {
+    currentExtractionIdRef.current += 1;
     setImage(null);
     setMimeType(null);
     setFormData(null);
     setError(null);
+    setLoading(false);
+    setIsExtractingLong(false);
   };
 
   if (!isAuthenticated) {
@@ -1204,7 +1231,21 @@ export default function App() {
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-slate-500 mb-6">
                 <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mb-4" />
                 <p className="text-sm font-medium">Mengekstrak data dokumen...</p>
-                <p className="text-xs text-slate-400 mt-2 text-center">AI sedang membaca nomor polisi, nama, dan rincian pajak.</p>
+                <p className="text-xs text-slate-400 mt-2 text-center mb-4">AI sedang membaca nomor polisi, nama, dan rincian pajak.</p>
+                
+                {isExtractingLong && (
+                  <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-center animate-in fade-in duration-300">
+                    <p className="text-sm text-amber-800 font-medium mb-3">
+                      Proses memakan waktu lebih lama dari biasanya. Anda bisa menunggu atau membatalkan untuk mencoba lagi.
+                    </p>
+                    <button 
+                      onClick={cancelInput}
+                      className="px-4 py-2 bg-white border border-amber-300 text-amber-700 rounded-lg text-sm font-medium hover:bg-amber-50 transition-colors"
+                    >
+                      Batalkan Ekstraksi
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
