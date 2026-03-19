@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { Camera, Upload, Loader2, Receipt, FileText, CheckCircle2, Sparkles, Database, PlusCircle, Trash2, Image as ImageIcon, AlertCircle, Eye, EyeOff, ChevronDown, Lock, User, LogOut, Search, X, FileBarChart, Pencil, Keyboard } from 'lucide-react';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { supabase } from './lib/supabase';
@@ -145,67 +145,123 @@ export default function App() {
     }
   };
 
-  const filteredTransactions = transactions.filter(trx => {
-    if (!trx) return false;
-    const nopol = String(trx.nomorPolisi || '');
-    const nama = String(trx.nama || '');
-    const searchStr = String(searchQuery || '').toLowerCase();
-    const matchesSearch = (nopol.toLowerCase().includes(searchStr) || nama.toLowerCase().includes(searchStr));
-    
-    let trxMonth = '';
-    let trxYear = '';
-    
-    if (trx.tanggalTetap) {
-      const parts = String(trx.tanggalTetap).split(/[-/ ]/);
-      if (parts.length >= 3) {
-        if (parts[0].length === 4) {
-          // Format YYYY-MM-DD
-          trxYear = parts[0];
-          trxMonth = parts[1];
-        } else if (parts[2].length >= 4) {
-          // Format DD-MM-YYYY or DD MMM YYYY
-          trxMonth = parts[1];
-          trxYear = parts[2].substring(0, 4);
-        }
-        
-        // Convert month names to numbers if necessary
-        const monthNames: {[key: string]: string} = {
-          'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mei': '05', 'jun': '06',
-          'jul': '07', 'agu': '08', 'sep': '09', 'okt': '10', 'nov': '11', 'des': '12'
-        };
-        const lowerMonth = String(trxMonth).toLowerCase().substring(0, 3);
-        if (monthNames[lowerMonth]) {
-          trxMonth = monthNames[lowerMonth];
+  const [filterDate, setFilterDate] = useState<string | null>(null);
+
+  const filteredTransactions = useMemo(() => {
+    const filtered = transactions.filter(trx => {
+      if (!trx) return false;
+      const nopol = String(trx.nomorPolisi || '');
+      const nama = String(trx.nama || '');
+      const searchStr = String(searchQuery || '').toLowerCase();
+      const matchesSearch = (nopol.toLowerCase().includes(searchStr) || nama.toLowerCase().includes(searchStr));
+      
+      let trxMonth = '';
+      let trxYear = '';
+      
+      if (trx.tanggalTetap) {
+        const parts = String(trx.tanggalTetap).split(/[-/ ]/);
+        if (parts.length >= 3) {
+          if (parts[0].length === 4) {
+            // Format YYYY-MM-DD
+            trxYear = parts[0];
+            trxMonth = parts[1];
+          } else if (parts[2].length >= 4) {
+            // Format DD-MM-YYYY or DD MMM YYYY
+            trxMonth = parts[1];
+            trxYear = parts[2].substring(0, 4);
+          }
+          
+          // Convert month names to numbers if necessary
+          const monthNames: {[key: string]: string} = {
+            'jan': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'mei': '05', 'jun': '06',
+            'jul': '07', 'agu': '08', 'sep': '09', 'okt': '10', 'nov': '11', 'des': '12'
+          };
+          const lowerMonth = String(trxMonth).toLowerCase().substring(0, 3);
+          if (monthNames[lowerMonth]) {
+            trxMonth = monthNames[lowerMonth];
+          }
         }
       }
-    }
 
-    // Fallback if parsing fails or data is missing
-    if ((!trxMonth || !trxYear || trxMonth.length !== 2) && trx.tanggalInput) {
-      try {
-        // Handle Supabase ISO string
-        const date = new Date(trx.tanggalInput);
-        if (!isNaN(date.getTime())) {
-          trxMonth = (date.getMonth() + 1).toString().padStart(2, '0');
-          trxYear = date.getFullYear().toString();
+      // Fallback if parsing fails or data is missing
+      if ((!trxMonth || !trxYear || trxMonth.length !== 2) && trx.tanggalInput) {
+        try {
+          // Handle Supabase ISO string
+          const date = new Date(trx.tanggalInput);
+          if (!isNaN(date.getTime())) {
+            trxMonth = (date.getMonth() + 1).toString().padStart(2, '0');
+            trxYear = date.getFullYear().toString();
+          }
+        } catch (e) {
+          // Ignore
         }
-      } catch (e) {
-        // Ignore
       }
-    }
 
-    // Final fallback for optimistic updates or completely unparseable dates
-    if (!trxMonth || !trxYear || trxMonth.length !== 2) {
-      const now = new Date();
-      trxMonth = (now.getMonth() + 1).toString().padStart(2, '0');
-      trxYear = now.getFullYear().toString();
-    }
+      // Final fallback for optimistic updates or completely unparseable dates
+      if (!trxMonth || !trxYear || trxMonth.length !== 2) {
+        const now = new Date();
+        trxMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+        trxYear = now.getFullYear().toString();
+      }
 
-    const matchesMonth = filterMonth ? trxMonth === filterMonth : true;
-    const matchesYear = filterYear ? trxYear === filterYear : true;
+      const matchesMonth = filterMonth ? trxMonth === filterMonth : true;
+      const matchesYear = filterYear ? trxYear === filterYear : true;
+      const matchesDate = filterDate ? trx.tanggalTetap === filterDate : true;
 
-    return matchesSearch && matchesMonth && matchesYear;
-  });
+      return matchesSearch && matchesMonth && matchesYear && matchesDate;
+    });
+
+    // Sorting logic
+    return filtered.sort((a, b) => {
+      const parseDate = (dateStr: string) => {
+        if (!dateStr) return 0;
+        const parts = String(dateStr).split(/[-/ ]/);
+        if (parts.length >= 3) {
+          let d, m, y;
+          if (parts[0].length === 4) {
+            // Format YYYY-MM-DD
+            y = parseInt(parts[0], 10);
+            m = parseInt(parts[1], 10) - 1;
+            d = parseInt(parts[2], 10);
+          } else {
+            // Format DD-MM-YYYY or DD MMM YYYY
+            d = parseInt(parts[0], 10);
+            
+            // Handle month names
+            const monthNames: {[key: string]: number} = {
+              'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'mei': 4, 'jun': 5,
+              'jul': 6, 'agu': 7, 'sep': 8, 'okt': 9, 'nov': 10, 'des': 11
+            };
+            const lowerMonth = String(parts[1]).toLowerCase().substring(0, 3);
+            if (monthNames[lowerMonth] !== undefined) {
+              m = monthNames[lowerMonth];
+            } else {
+              m = parseInt(parts[1], 10) - 1;
+            }
+            
+            y = parseInt(parts[2].substring(0, 4), 10);
+          }
+          const date = new Date(y, m, d);
+          return isNaN(date.getTime()) ? 0 : date.getTime();
+        }
+        return 0;
+      };
+      
+      const dateA = parseDate(a.tanggalTetap);
+      const dateB = parseDate(b.tanggalTetap);
+      const timeA = a.tanggalInput ? new Date(a.tanggalInput).getTime() : 0;
+      const timeB = b.tanggalInput ? new Date(b.tanggalInput).getTime() : 0;
+
+      // If "Semua" is selected (filterDate is null), sort by tanggalTetap descending
+      if (!filterDate) {
+        if (dateA !== dateB) return dateB - dateA;
+        return timeB - timeA;
+      }
+      
+      // Default / Specific date view: Sort by input time (tanggalInput) descending
+      return timeB - timeA;
+    });
+  }, [transactions, searchQuery, filterMonth, filterYear, filterDate]);
   
   const generatePDFReport = () => {
     const doc = new jsPDF();
@@ -380,8 +436,16 @@ export default function App() {
     if (!file) return;
 
     const reader = new FileReader();
+    reader.onerror = () => {
+      console.error("FileReader error");
+      setError("Gagal membaca file gambar. Silakan coba lagi.");
+    };
     reader.onloadend = () => {
       const img = new Image();
+      img.onerror = () => {
+        console.error("Image load error");
+        setError("Gagal memuat gambar. Pastikan file adalah gambar yang valid.");
+      };
       img.onload = () => {
         const canvas = document.createElement('canvas');
         // Meningkatkan resolusi maksimal menjadi 1600 untuk OCR yang lebih baik pada gambar buram
@@ -422,6 +486,9 @@ export default function App() {
       img.src = reader.result as string;
     };
     reader.readAsDataURL(file);
+    
+    // Reset value so the same file can be selected again
+    event.target.value = '';
   };
 
   const analyzeImage = async () => {
@@ -446,7 +513,7 @@ export default function App() {
       
       const ai = getAIClient();
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite-preview',
+        model: 'gemini-3-flash-preview',
         contents: {
           parts: [
             {
@@ -456,7 +523,7 @@ export default function App() {
               },
             },
             {
-              text: 'PERIKSA VALIDITAS TERLEBIH DAHULU: Jika gambar ini BUKAN dokumen SSPD/Notice Pajak kendaraan yang sah, segera set isValidSspd: false dan abaikan semua instruksi ekstraksi lainnya. Jika YA, lakukan identifikasi secara cepat dan akurat. FOKUS UTAMA: Nomor Polisi, Nama Pemilik, Masa Pajak, Tanggal Tetap, PKB, dan Opsen PKB. PENTING: 1) Jika gambar sedikit buram, lakukan inferensi terbaik berdasarkan konteks huruf/angka yang terlihat. 2) Teks pada dokumen mungkin bergeser atau tidak sejajar. Gunakan pola data (seperti format plat nomor) untuk mengidentifikasi nilai yang benar. 3) Pastikan mengambil nilai PKB dan Opsen PKB HANYA dari kolom "JUMLAH" (paling kanan). 4) Untuk status tunggakan, perhatikan SANGAT TELITI angka pada kolom "SANKSI ADMINISTRATIF". Jika SEMUA nilai adalah 0, maka isTunggakan: false. Jika ada SALAH SATU nilai bukan 0, maka isTunggakan: true. 5) FORMAT TANGGAL WAJIB: DD-MM-YYYY.',
+              text: 'ANALISIS DOKUMEN SSPD/NOTICE PAJAK DENGAN TINGKAT AKURASI TINGGI. \n\n1. VALIDASI: Jika bukan SSPD, set isValidSspd: false.\n2. EKSTRAKSI DATA UTAMA: Ambil Nomor Polisi (tanpa spasi), Nama Pemilik, Masa Pajak, dan Tanggal Tetap (DD-MM-YYYY).\n3. NOMINAL: Ambil PKB dan Opsen PKB dari kolom "JUMLAH" paling kanan.\n4. DETEKSI TUNGGAKAN (KRITIKAL): Periksa kolom "SANKSI ADMINISTRATIF", "DENDA", atau "BUNGA". \n   - Jika ditemukan angka > 0 pada baris PKB, Opsen PKB, atau SWDKLLJ di kolom sanksi, maka WAJIB set isTunggakan: true.\n   - Cari kata kunci seperti "TUNGGAKAN", "DENDA", "SANKSI", atau "BUNGA" yang memiliki nilai nominal.\n   - Jika SEMUA baris pada kolom sanksi bernilai 0 atau kosong, maka set isTunggakan: false.\n   - Teliti setiap baris secara horizontal, jangan sampai angka sanksi yang bergeser terlewat.\n5. FORMAT TANGGAL: Selalu gunakan DD-MM-YYYY.',
             },
           ],
         },
@@ -495,7 +562,7 @@ export default function App() {
               },
               isTunggakan: {
                 type: Type.BOOLEAN,
-                description: "True jika terdapat nilai lebih dari 0 pada kolom SANKSI ADMINISTRATIF (terutama pada baris PKB, OPSEN PKB, atau SWDKLLJ). False jika SEMUA baris di kolom SANKSI ADMINISTRATIF bernilai 0."
+                description: "WAJIB TRUE jika ada nominal > 0 di kolom SANKSI ADMINISTRATIF, DENDA, atau BUNGA. Periksa baris PKB, OPSEN PKB, dan SWDKLLJ. FALSE hanya jika semua sanksi benar-benar 0."
               }
             },
             required: ["nomorPolisi", "nama", "masaPajak", "tanggalTetap", "jumlahPkb", "jumlahOpsenPkb", "isTunggakan"]
@@ -1116,41 +1183,252 @@ export default function App() {
           <span className="text-[13px] font-medium tracking-wide">{showErrorToast}</span>
         </div>
       )}
-      <header className="bg-white shadow-sm sticky top-0 z-20 border-b border-slate-200">
-        <div className="max-w-md mx-auto px-5 py-4 flex items-center justify-between">
+      <div className="sticky top-0 z-20 bg-white border-b border-slate-100">
+        <header className="max-w-md mx-auto px-3 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-800 tracking-wide">Catatan Transaksi</h1>
-            <div className="flex items-center gap-1 mt-1">
-              <span className="text-xs font-bold text-slate-700 uppercase tracking-widest">
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Catatan Transaksi</h1>
+            <div className="flex items-center gap-1 mt-0.5">
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                 S<span className="text-red-600">A</span>MSAT
               </span>
-              <span className="text-xs font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-blue-500 to-orange-500 uppercase tracking-widest">
+              <span className="text-[10px] font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-700 via-blue-500 to-orange-500 uppercase tracking-widest">
                 {String(currentUser || '').replace('SAMSAT ', '').toUpperCase()}
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <button 
               onClick={generatePDFReport}
-              className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-200 shadow-sm hover:bg-indigo-50 hover:border-indigo-200 transition-colors group"
+              className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center border border-slate-200 shadow-sm hover:bg-indigo-50 hover:border-indigo-200 transition-colors group"
               title="Laporan"
             >
-              <FileBarChart className="w-5 h-5 text-slate-500 group-hover:text-indigo-600 transition-colors" />
+              <FileBarChart className="w-4.5 h-4.5 text-slate-500 group-hover:text-indigo-600 transition-colors" />
             </button>
             <button 
               onClick={() => setLogoutConfirm(true)}
-              className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-200 shadow-sm hover:bg-red-50 hover:border-red-200 transition-colors group"
+              className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center border border-slate-200 shadow-sm hover:bg-red-50 hover:border-red-200 transition-colors group"
               title="Keluar"
             >
-              <LogOut className="w-5 h-5 text-slate-500 group-hover:text-red-600 transition-colors" />
+              <LogOut className="w-4.5 h-4.5 text-slate-500 group-hover:text-red-600 transition-colors" />
             </button>
           </div>
-        </div>
-      </header>
+        </header>
 
-      <main className="flex-1 max-w-md w-full mx-auto p-4 pb-24">
+        {activeTab === 'history' && (
+          <div className="max-w-md mx-auto px-3 pb-3">
+            <div className="space-y-3 relative z-10">
+              <div className="relative w-full">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="w-4 h-4 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Cari plat nomor atau nama..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 text-sm shadow-none transition-all"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1" ref={monthDropdownRef}>
+                  <button
+                    onClick={() => setIsMonthDropdownOpen(!isMonthDropdownOpen)}
+                    className="w-full flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-2 py-2.5 text-xs text-slate-700 shadow-none font-bold transition-all"
+                  >
+                    <span className="truncate">{MONTHS.find(m => m.value === filterMonth)?.label || 'Bulan'}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${isMonthDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isMonthDropdownOpen && (
+                    <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-auto py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {MONTHS.map((month) => (
+                        <button
+                          key={month.value}
+                          onClick={() => {
+                            setFilterMonth(month.value);
+                            setIsMonthDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-xs hover:bg-slate-50 transition-colors ${filterMonth === month.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 font-medium'}`}
+                        >
+                          {month.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative flex-1" ref={yearDropdownRef}>
+                  <button
+                    onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
+                    className="w-full flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-2 py-2.5 text-xs text-slate-700 shadow-none font-bold transition-all"
+                  >
+                    <span className="truncate">{YEARS.find(y => y.value === filterYear)?.label || 'Tahun'}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 flex-shrink-0 ${isYearDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {isYearDropdownOpen && (
+                    <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-xl max-h-60 overflow-auto py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                      {YEARS.map((year) => (
+                        <button
+                          key={year.value}
+                          onClick={() => {
+                            setFilterYear(year.value);
+                            setIsYearDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2.5 text-xs hover:bg-slate-50 transition-colors ${filterYear === year.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 font-medium'}`}
+                        >
+                          {year.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Ultra-Compact Daily Summary Section */}
+              {transactions.length > 0 && (
+                <div className="pt-0.5">
+                  <div className="flex overflow-x-auto pb-2 gap-1.5 no-scrollbar -mx-3 px-3 mask-fade-right">
+                    {/* Total Card */}
+                    <button 
+                      onClick={() => setFilterDate(null)}
+                      className={`flex-shrink-0 w-8 h-9 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 border ${!filterDate ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-indigo-200'}`}
+                    >
+                      <span className="text-[6px] font-bold uppercase tracking-tighter mb-0 opacity-70">Semua</span>
+                      <span className="text-[10px] font-black leading-none">
+                        {transactions.filter(trx => {
+                          if (!trx) return false;
+                          const searchStr = String(searchQuery || '').toLowerCase();
+                          const matchesSearch = (String(trx.nomorPolisi || '').toLowerCase().includes(searchStr) || String(trx.nama || '').toLowerCase().includes(searchStr));
+                          
+                          let trxMonth = '';
+                          let trxYear = '';
+                          if (trx.tanggalTetap) {
+                            const parts = String(trx.tanggalTetap).split(/[-/ ]/);
+                            if (parts.length >= 3) {
+                              if (parts[0].length === 4) { trxYear = parts[0]; trxMonth = parts[1]; }
+                              else if (parts[2].length >= 4) { trxMonth = parts[1]; trxYear = parts[2].substring(0, 4); }
+                            }
+                          }
+                          if (!trxMonth || !trxYear || trxMonth.length !== 2) {
+                            const now = new Date();
+                            trxMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+                            trxYear = now.getFullYear().toString();
+                          }
+                          return matchesSearch && (filterMonth ? trxMonth === filterMonth : true) && (filterYear ? trxYear === filterYear : true);
+                        }).length}
+                      </span>
+                    </button>
+
+                    {/* Daily Cards */}
+                    {Object.entries(
+                      transactions.filter(trx => {
+                        if (!trx) return false;
+                        const searchStr = String(searchQuery || '').toLowerCase();
+                        const matchesSearch = (String(trx.nomorPolisi || '').toLowerCase().includes(searchStr) || String(trx.nama || '').toLowerCase().includes(searchStr));
+                        
+                        let trxMonth = '';
+                        let trxYear = '';
+                        if (trx.tanggalTetap) {
+                          const parts = String(trx.tanggalTetap).split(/[-/ ]/);
+                          if (parts.length >= 3) {
+                            if (parts[0].length === 4) { trxYear = parts[0]; trxMonth = parts[1]; }
+                            else if (parts[2].length >= 4) { trxMonth = parts[1]; trxYear = parts[2].substring(0, 4); }
+                          }
+                        }
+                        if (!trxMonth || !trxYear || trxMonth.length !== 2) {
+                          const now = new Date();
+                          trxMonth = (now.getMonth() + 1).toString().padStart(2, '0');
+                          trxYear = now.getFullYear().toString();
+                        }
+                        return matchesSearch && (filterMonth ? trxMonth === filterMonth : true) && (filterYear ? trxYear === filterYear : true);
+                      }).reduce((acc, trx) => {
+                        const date = trx.tanggalTetap || 'Tanpa Tanggal';
+                        acc[date] = (acc[date] || 0) + 1;
+                        return acc;
+                      }, {} as Record<string, number>)
+                    ).sort((a, b) => {
+                      const parseDate = (dateStr: string) => {
+                        if (!dateStr || dateStr === 'Tanpa Tanggal') return 0;
+                        const parts = String(dateStr).split(/[-/ ]/);
+                        if (parts.length >= 3) {
+                          let d, m, y;
+                          if (parts[0].length === 4) {
+                            y = parseInt(parts[0], 10);
+                            m = parseInt(parts[1], 10) - 1;
+                            d = parseInt(parts[2], 10);
+                          } else {
+                            d = parseInt(parts[0], 10);
+                            
+                            // Handle month names
+                            const monthNames: {[key: string]: number} = {
+                              'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'mei': 4, 'jun': 5,
+                              'jul': 6, 'agu': 7, 'sep': 8, 'okt': 9, 'nov': 10, 'des': 11
+                            };
+                            const lowerMonth = String(parts[1]).toLowerCase().substring(0, 3);
+                            if (monthNames[lowerMonth] !== undefined) {
+                              m = monthNames[lowerMonth];
+                            } else {
+                              m = parseInt(parts[1], 10) - 1;
+                            }
+                            
+                            y = parseInt(parts[2].substring(0, 4), 10);
+                          }
+                          const dt = new Date(y, m, d);
+                          return isNaN(dt.getTime()) ? 0 : dt.getTime();
+                        }
+                        return 0;
+                      };
+                      return parseDate(b[0]) - parseDate(a[0]);
+                    }).map(([date, count]) => {
+                      let dayNum = '??';
+                      let dayName = 'Tgl';
+                      
+                      if (date !== 'Tanpa Tanggal') {
+                        const parts = date.split(/[-/ ]/);
+                        if (parts.length >= 3) {
+                          let d, m, y;
+                          if (parts[0].length === 4) { y = parseInt(parts[0], 10); m = parseInt(parts[1], 10) - 1; d = parseInt(parts[2], 10); }
+                          else { d = parseInt(parts[0], 10); m = parseInt(parts[1], 10) - 1; y = parseInt(parts[2], 10); }
+                          const dt = new Date(y, m, d);
+                          if (!isNaN(dt.getTime())) {
+                            dayNum = d.toString();
+                            const days = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+                            dayName = days[dt.getDay()];
+                          }
+                        }
+                      }
+
+                      return (
+                        <button 
+                          key={date} 
+                          onClick={() => setFilterDate(filterDate === date ? null : date)}
+                          className={`flex-shrink-0 w-8 h-9 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 border relative ${filterDate === date ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-indigo-200'}`}
+                        >
+                          <span className={`text-[6px] font-bold uppercase tracking-tighter mb-0 ${filterDate === date ? 'opacity-70' : 'text-slate-400'}`}>{dayName}</span>
+                          <span className="text-[10px] font-black leading-none mb-0">{dayNum}</span>
+                          <div className={`absolute -top-0.5 -right-0.5 min-w-[10px] h-[10px] px-0.5 rounded-full flex items-center justify-center text-[5px] font-black border ${filterDate === date ? 'bg-white text-indigo-600 border-indigo-600' : 'bg-indigo-600 text-white border-white shadow-sm'}`}>
+                            {count}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <main className="flex-1 max-w-md w-full mx-auto pb-24">
         {activeTab === 'input' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 px-3 pt-4">
             {/* Upload Section (Only show if no image selected) */}
             {!image && (
               <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
@@ -1320,34 +1598,39 @@ export default function App() {
                   </div>
 
                   <div className="pt-4 mt-2 border-t border-slate-100">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Rincian Pembayaran</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <AmountField 
-                        label="PKB" 
-                        value={formData?.jumlahPkb || ''} 
-                        onChange={(e) => handleInputChange('jumlahPkb', e.target.value)} 
-                        error={aiFormErrors.jumlahPkb}
-                      />
-                      <AmountField 
-                        label="Opsen PKB" 
-                        value={formData?.jumlahOpsenPkb || ''} 
-                        onChange={(e) => handleInputChange('jumlahOpsenPkb', e.target.value)} 
-                        error={aiFormErrors.jumlahOpsenPkb}
-                      />
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-bold text-slate-700">Status Pembayaran</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer"
+                            checked={formData?.isTunggakan || false}
+                            onChange={(e) => handleInputChange('isTunggakan', e.target.checked)}
+                          />
+                          <div className="w-11 h-6 bg-emerald-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
+                          <span className={`ml-3 text-[10px] font-black tracking-wider ${formData?.isTunggakan ? 'text-red-600' : 'text-emerald-600'}`}>
+                            {formData?.isTunggakan ? 'TUNGGAKAN' : 'NON TUNGGAKAN'}
+                          </span>
+                        </label>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <AmountField 
+                          label="PKB" 
+                          value={formData?.jumlahPkb || ''} 
+                          onChange={(e) => handleInputChange('jumlahPkb', e.target.value)} 
+                          error={aiFormErrors.jumlahPkb}
+                        />
+                        <AmountField 
+                          label="Opsen PKB" 
+                          value={formData?.jumlahOpsenPkb || ''} 
+                          onChange={(e) => handleInputChange('jumlahOpsenPkb', e.target.value)} 
+                          error={aiFormErrors.jumlahOpsenPkb}
+                        />
+                      </div>
                     </div>
                   </div>
-
-                  {!formData && (
-                    <div className="flex items-center mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer" onClick={() => handleInputChange('isTunggakan', !(formData?.isTunggakan || false))}>
-                      <div className={`w-6 h-6 rounded-md flex items-center justify-center mr-3 transition-colors ${formData?.isTunggakan ? 'bg-red-500 border-red-500' : 'bg-white border-2 border-slate-300'}`}>
-                        {formData?.isTunggakan && <CheckCircle2 className="w-4 h-4 text-white" />}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-700">Tandai sebagai Tunggakan</p>
-                        <p className="text-xs text-slate-500 mt-0.5">Centang jika ini adalah pembayaran tunggakan</p>
-                      </div>
-                    </div>
-                  )}
 
                   <div className="flex gap-3 mt-6">
                     <button 
@@ -1378,112 +1661,38 @@ export default function App() {
         )}
 
         {activeTab === 'history' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col h-full">
-            <div className="sticky top-[81px] z-10 bg-slate-50 pt-2 pb-4 px-1">
-              <div className="space-y-3 relative z-10">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="w-4 h-4 text-slate-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Cari plat nomor atau nama..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-10 py-2.5 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-0 focus:border-slate-200 text-sm shadow-sm transition-all"
-                  />
-                  {searchQuery && (
-                    <button 
-                      onClick={() => setSearchQuery('')}
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-                <div className="flex gap-3">
-                  <div className="relative flex-1" ref={monthDropdownRef}>
-                    <button
-                      onClick={() => setIsMonthDropdownOpen(!isMonthDropdownOpen)}
-                      className="w-full flex items-center justify-between bg-white border border-slate-200 rounded-xl pl-4 pr-3 py-2.5 text-sm text-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium transition-all"
-                    >
-                      <span>{MONTHS.find(m => m.value === filterMonth)?.label || 'Pilih Bulan'}</span>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isMonthDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {isMonthDropdownOpen && (
-                      <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-auto py-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                        {MONTHS.map((month) => (
-                          <button
-                            key={month.value}
-                            onClick={() => {
-                              setFilterMonth(month.value);
-                              setIsMonthDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${filterMonth === month.value ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 font-medium'}`}
-                          >
-                            {month.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="relative flex-1" ref={yearDropdownRef}>
-                    <button
-                      onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
-                      className="w-full flex items-center justify-between bg-white border border-slate-200 rounded-xl pl-4 pr-3 py-2.5 text-sm text-slate-700 shadow-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium transition-all"
-                    >
-                      <span>{YEARS.find(y => y.value === filterYear)?.label || 'Pilih Tahun'}</span>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isYearDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {isYearDropdownOpen && (
-                      <div className="absolute z-20 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-auto py-1 animate-in fade-in slide-in-from-top-2 duration-200">
-                        {YEARS.map((year) => (
-                          <button
-                            key={year.value}
-                            onClick={() => {
-                              setFilterYear(year.value);
-                              setIsYearDropdownOpen(false);
-                            }}
-                            className={`w-full text-left px-4 py-2.5 text-sm hover:bg-slate-50 transition-colors ${filterYear === year.value ? 'bg-indigo-50 text-indigo-700 font-semibold' : 'text-slate-700 font-medium'}`}
-                          >
-                            {year.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="absolute -bottom-4 left-0 right-0 h-4 bg-gradient-to-b from-slate-50 to-transparent pointer-events-none"></div>
-            </div>
-            
-            <div className="px-1 pt-2 pb-24">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col h-full px-2 pt-4">
+            <div>
               {isLoadingTransactions ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center mx-1">
                   <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
                     <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
                   </div>
                   <p className="text-slate-600 font-medium mb-1">Memuat data transaksi...</p>
                   <p className="text-sm text-slate-400">Harap tunggu sebentar, sedang mengambil data dari server.</p>
                 </div>
-              ) : filteredTransactions.length === 0 ? (
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                    <Receipt className="w-8 h-8 text-slate-300" />
-                  </div>
-                  <p className="text-slate-600 font-medium mb-1">Belum ada transaksi</p>
-                  <p className="text-sm text-slate-400">Data yang Anda simpan akan muncul di sini.</p>
-                  <button 
-                    onClick={() => setActiveTab('input')}
-                    className="mt-6 text-indigo-600 text-sm font-semibold uppercase tracking-wider"
-                  >
-                    + Tambah Transaksi
-                  </button>
-                </div>
               ) : (
-                <div className="space-y-4">
-                  {filteredTransactions.map((trx) => (
-                    <div key={trx.id} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <>
+                  {filteredTransactions.length === 0 ? (
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-10 flex flex-col items-center justify-center text-center mx-1">
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                        <Receipt className="w-8 h-8 text-slate-300" />
+                      </div>
+                      <p className="text-slate-600 font-medium mb-1">Tidak ada data ditemukan</p>
+                      <p className="text-sm text-slate-400">Coba ubah filter atau pencarian Anda.</p>
+                      {(searchQuery || filterDate) && (
+                        <button 
+                          onClick={() => { setSearchQuery(''); setFilterDate(null); }}
+                          className="mt-4 text-indigo-600 text-xs font-bold uppercase tracking-wider"
+                        >
+                          Bersihkan Filter
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 px-1">
+                      {filteredTransactions.map((trx) => (
+                        <div key={trx.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                       <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 flex justify-between items-center">
                         <span className="text-xs font-medium text-slate-500">{trx.tanggalTetap || '-'}</span>
                         <div className="flex items-center gap-3">
@@ -1543,9 +1752,11 @@ export default function App() {
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        )}
+            </>
+          )}
+        </div>
+      </div>
+    )}
       </main>
 
       {/* Image Viewer Modal */}
