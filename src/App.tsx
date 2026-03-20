@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { Camera, Upload, Loader2, Receipt, FileText, CheckCircle2, Sparkles, Database, PlusCircle, Trash2, Image as ImageIcon, AlertCircle, Eye, EyeOff, ChevronDown, Lock, User, LogOut, Search, X, FileBarChart, Pencil, Keyboard } from 'lucide-react';
+import { Camera, Upload, Loader2, Receipt, FileText, CheckCircle2, Sparkles, Database, PlusCircle, Trash2, Image as ImageIcon, AlertCircle, Eye, EyeOff, ChevronDown, Lock, User, LogOut, Search, X, FileBarChart, Pencil, Keyboard, LayoutGrid } from 'lucide-react';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import { supabase } from './lib/supabase';
 import jsPDF from 'jspdf';
@@ -1292,15 +1292,18 @@ export default function App() {
 
               {/* Ultra-Compact Daily Summary Section */}
               {transactions.length > 0 && (
-                <div className="pt-0.5">
+                <div className="pt-2">
                   <div className="flex overflow-x-auto pb-2 gap-1.5 no-scrollbar -mx-3 px-3 mask-fade-right">
                     {/* Total Card */}
                     <button 
                       onClick={() => setFilterDate(null)}
-                      className={`flex-shrink-0 w-8 h-9 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 border ${!filterDate ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-indigo-200'}`}
+                      className={`flex-shrink-0 w-10 h-9 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 border relative ${!filterDate ? 'bg-indigo-600 border-indigo-600 text-white shadow-md ring-2 ring-indigo-100' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:bg-slate-50'}`}
                     >
-                      <span className="text-[6px] font-bold uppercase tracking-tighter mb-0 opacity-70">Semua</span>
-                      <span className="text-[10px] font-black leading-none">
+                      <div className="flex flex-col items-center leading-[1.1]">
+                        <span className={`text-[7px] font-bold uppercase tracking-tighter ${!filterDate ? 'text-white' : 'text-slate-500'}`}>Semua</span>
+                        <span className={`text-[7px] font-bold uppercase tracking-tighter ${!filterDate ? 'text-white' : 'text-slate-500'}`}>Data</span>
+                      </div>
+                      <div className={`absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center text-[8px] font-black border-2 shadow-sm ${!filterDate ? 'bg-white text-indigo-600 border-indigo-600' : 'bg-indigo-600 text-white border-white'}`}>
                         {transactions.filter(trx => {
                           if (!trx) return false;
                           const searchStr = String(searchQuery || '').toLowerCase();
@@ -1322,7 +1325,7 @@ export default function App() {
                           }
                           return matchesSearch && (filterMonth ? trxMonth === filterMonth : true) && (filterYear ? trxYear === filterYear : true);
                         }).length}
-                      </span>
+                      </div>
                     </button>
 
                     {/* Daily Cards */}
