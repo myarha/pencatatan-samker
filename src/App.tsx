@@ -1384,7 +1384,7 @@ export default function App() {
                         }
                         return 0;
                       };
-                      return parseDate(b[0]) - parseDate(a[0]);
+                      return parseDate(a[0]) - parseDate(b[0]);
                     }).map(([date, count]) => {
                       let dayNum = '??';
                       let dayName = 'Tgl';
