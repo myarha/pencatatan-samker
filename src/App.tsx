@@ -306,7 +306,7 @@ export default function App() {
     });
 
     // Table Data
-    const tableColumn = ["No", "Tanggal Tetap", "Nomor Polisi", "Nama", "PKB", "Opsen PKB", "Tunggakan"];
+    const tableColumn = ["No", "Tanggal Tetap", "Nomor Polisi", "Nama", "PKB", "Opsen PKB", "Transaksi"];
     const tableRows: any[] = [];
 
     let totalPkb = 0;
@@ -322,7 +322,7 @@ export default function App() {
         trx.nama,
         trx.jumlahPkb,
         trx.jumlahOpsenPkb,
-        trx.isTunggakan ? 'Ya' : 'Tidak'
+        trx.isTunggakan ? 'Tunggakan' : 'Non\nTunggakan'
       ];
       tableRows.push(rowData);
 
@@ -351,19 +351,19 @@ export default function App() {
       headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
       alternateRowStyles: { fillColor: [255, 255, 255] },
       columnStyles: {
-        0: { cellWidth: 10, halign: 'center' },
-        1: { cellWidth: 26 },
-        2: { cellWidth: 25, fontStyle: 'bold' },
-        3: { cellWidth: 'auto' },
-        4: { cellWidth: 22, halign: 'right' },
-        5: { cellWidth: 24, halign: 'right' },
-        6: { cellWidth: 22, halign: 'center' }
+        0: { cellWidth: 12, halign: 'center', overflow: 'linebreak' },
+        1: { cellWidth: 30, halign: 'center', overflow: 'linebreak' },
+        2: { cellWidth: 24, fontStyle: 'bold', overflow: 'linebreak' },
+        3: { cellWidth: 'auto', overflow: 'linebreak' },
+        4: { cellWidth: 22, halign: 'center', overflow: 'linebreak' },
+        5: { cellWidth: 24, halign: 'center', overflow: 'linebreak' },
+        6: { cellWidth: 20, halign: 'center', overflow: 'linebreak' }
       },
       didParseCell: function(data) {
         if (data.section === 'body' && data.column.index === 6) {
-          if (data.cell.raw === 'Ya') {
+          if (data.cell.raw === 'Tunggakan') {
             data.cell.styles.textColor = [220, 38, 38];
-          } else {
+          } else if (data.cell.raw === 'Non\nTunggakan') {
             data.cell.styles.textColor = [22, 163, 74];
           }
         }
@@ -816,6 +816,10 @@ export default function App() {
       finalValue = String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
     }
 
+    if (field === 'nama') {
+      finalValue = String(value || '').toUpperCase();
+    }
+
     if (field === 'tanggalTetap') {
       // Allow only digits and dashes
       finalValue = String(value || '').replace(/[^0-9-]/g, '');
@@ -865,6 +869,10 @@ export default function App() {
         finalValue = String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       }
 
+      if (field === 'nama') {
+        finalValue = String(value || '').toUpperCase();
+      }
+
       if (field === 'tanggalTetap') {
         // Allow only digits and dashes
         finalValue = String(value || '').replace(/[^0-9-]/g, '');
@@ -893,6 +901,10 @@ export default function App() {
 
       if (field === 'nomorPolisi') {
         finalValue = String(value || '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      }
+
+      if (field === 'nama') {
+        finalValue = String(value || '').toUpperCase();
       }
 
       if (field === 'tanggalTetap') {
