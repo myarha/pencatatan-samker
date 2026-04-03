@@ -1227,8 +1227,8 @@ export default function App() {
         </header>
 
         {activeTab === 'history' && (
-          <div className="max-w-md mx-auto px-3 pb-3">
-            <div className="space-y-3 relative z-10">
+          <div className="max-w-md mx-auto px-3 pb-1">
+            <div className="space-y-2 relative z-10">
               <div className="relative w-full">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="w-4 h-4 text-slate-400" />
@@ -1304,18 +1304,18 @@ export default function App() {
 
               {/* Ultra-Compact Daily Summary Section */}
               {transactions.length > 0 && (
-                <div className="pt-2">
-                  <div className="flex overflow-x-auto pb-2 gap-1.5 no-scrollbar -mx-3 px-3 mask-fade-right">
+                <div className="pt-0">
+                  <div className="flex overflow-x-auto pt-2.5 pb-2.5 gap-2 no-scrollbar -mx-3 px-4">
                     {/* Total Card */}
                     <button 
                       onClick={() => setFilterDate(null)}
-                      className={`flex-shrink-0 w-10 h-9 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 border relative ${!filterDate ? 'bg-indigo-600 border-indigo-600 text-white shadow-md ring-2 ring-indigo-100' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:bg-slate-50'}`}
+                      className={`flex-shrink-0 w-12 h-10 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 border relative ${!filterDate ? 'bg-indigo-600 border-indigo-600 text-white shadow-md ring-2 ring-indigo-100' : 'bg-white border-slate-200 text-slate-500 hover:border-indigo-300 hover:bg-slate-50'}`}
                     >
                       <div className="flex flex-col items-center leading-[1.1]">
-                        <span className={`text-[7px] font-bold uppercase tracking-tighter ${!filterDate ? 'text-white' : 'text-slate-500'}`}>Semua</span>
-                        <span className={`text-[7px] font-bold uppercase tracking-tighter ${!filterDate ? 'text-white' : 'text-slate-500'}`}>Data</span>
+                        <span className={`text-[8px] font-bold uppercase tracking-tighter ${!filterDate ? 'text-white' : 'text-slate-500'}`}>Semua</span>
+                        <span className={`text-[8px] font-bold uppercase tracking-tighter ${!filterDate ? 'text-white' : 'text-slate-500'}`}>Data</span>
                       </div>
-                      <div className={`absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center text-[8px] font-black border-2 shadow-sm ${!filterDate ? 'bg-white text-indigo-600 border-indigo-600' : 'bg-indigo-600 text-white border-white'}`}>
+                      <div className={`absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center text-[9px] font-black border-2 shadow-sm ${!filterDate ? 'bg-white text-indigo-600 border-indigo-600' : 'bg-indigo-600 text-white border-white'}`}>
                         {transactions.filter(trx => {
                           if (!trx) return false;
                           const searchStr = String(searchQuery || '').toLowerCase();
@@ -1423,11 +1423,11 @@ export default function App() {
                         <button 
                           key={date} 
                           onClick={() => setFilterDate(filterDate === date ? null : date)}
-                          className={`flex-shrink-0 w-8 h-9 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 border relative ${filterDate === date ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-indigo-200'}`}
+                          className={`flex-shrink-0 w-8 h-10 rounded-md flex flex-col items-center justify-center transition-all active:scale-95 border relative ${filterDate === date ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-indigo-200'}`}
                         >
                           <span className={`text-[6px] font-bold uppercase tracking-tighter mb-0 ${filterDate === date ? 'opacity-70' : 'text-slate-400'}`}>{dayName}</span>
                           <span className="text-[10px] font-black leading-none mb-0">{dayNum}</span>
-                          <div className={`absolute -top-0.5 -right-0.5 min-w-[10px] h-[10px] px-0.5 rounded-full flex items-center justify-center text-[5px] font-black border ${filterDate === date ? 'bg-white text-indigo-600 border-indigo-600' : 'bg-indigo-600 text-white border-white shadow-sm'}`}>
+                          <div className={`absolute -top-1 -right-1 min-w-[12px] h-[12px] px-0.5 rounded-full flex items-center justify-center text-[6px] font-black border ${filterDate === date ? 'bg-white text-indigo-600 border-indigo-600' : 'bg-indigo-600 text-white border-white shadow-sm'}`}>
                             {count}
                           </div>
                         </button>
@@ -1676,7 +1676,7 @@ export default function App() {
         )}
 
         {activeTab === 'history' && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col h-full px-2 pt-4">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 flex flex-col h-full px-2 pt-2">
             <div>
               {isLoadingTransactions ? (
                 <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 flex flex-col items-center justify-center text-center mx-1">
@@ -1705,67 +1705,87 @@ export default function App() {
                       )}
                     </div>
                   ) : (
-                    <div className="space-y-2.5 px-1">
-                      {filteredTransactions.map((trx) => (
-                        <div key={trx.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                      <div className="bg-slate-50 border-b border-slate-100 px-4 py-3 flex justify-between items-center">
-                        <span className="text-xs font-medium text-slate-500">{trx.tanggalTetap || '-'}</span>
-                        <div className="flex items-center gap-3">
-                          {trx.imageData && (
-                            <button 
-                              onClick={() => setViewImage(trx.imageData!)}
-                              className="text-slate-400 hover:text-indigo-600 transition-colors"
-                              title="Lihat Dokumen"
-                            >
-                              <ImageIcon className="w-4 h-4" />
-                            </button>
-                          )}
-                          <button 
-                            onClick={() => setEditingTransaction(trx)}
-                            className="text-slate-400 hover:text-indigo-600 transition-colors"
-                            title="Edit Transaksi"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => confirmDelete(trx.id!, trx.nomorPolisi)}
-                            className="text-slate-400 hover:text-red-500 transition-colors"
-                            title="Hapus Transaksi"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                      <div className="space-y-3 px-1">
+                        {filteredTransactions.map((trx) => (
+                          <div key={trx.id} className="bg-white border-2 border-slate-300 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                            {/* SSPD Header Style */}
+                            <div className="bg-slate-800 text-white px-3 py-2 flex justify-between items-center border-b border-slate-900">
+                              <div className="flex flex-col">
+                                <span className="text-[8px] font-black tracking-[0.2em] leading-none opacity-70">SURAT SETORAN PAJAK DAERAH</span>
+                                <span className="text-[11px] font-black tracking-widest leading-tight">SSPD - {trx.tanggalTetap?.split('-')[2] || '2025'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="bg-white/10 px-2 py-1 rounded border border-white/20">
+                                  <span className="text-xs font-black tracking-wider font-mono">{trx.nomorPolisi}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 ml-1 border-l border-white/20 pl-2">
+                                  {trx.imageData && (
+                                    <button 
+                                      onClick={() => setViewImage(trx.imageData!)}
+                                      className="text-white/60 hover:text-white transition-colors"
+                                      title="Lihat Dokumen"
+                                    >
+                                      <ImageIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
+                                  <button 
+                                    onClick={() => setEditingTransaction(trx)}
+                                    className="text-white/60 hover:text-indigo-400 transition-colors"
+                                    title="Edit Transaksi"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button 
+                                    onClick={() => confirmDelete(trx.id!, trx.nomorPolisi)}
+                                    className="text-white/60 hover:text-red-400 transition-colors"
+                                    title="Hapus Transaksi"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* SSPD Body Style */}
+                            <div className="flex flex-col">
+                              <div className="flex border-b border-slate-200">
+                                <div className="w-24 bg-slate-50 px-2.5 py-1.5 text-[8px] font-black text-slate-500 uppercase border-r border-slate-200 flex items-center">NAMA PEMILIK</div>
+                                <div className="flex-1 px-3 py-1.5 text-xs font-bold text-slate-800 uppercase truncate">{trx.nama}</div>
+                              </div>
+                              
+                              <div className="flex border-b border-slate-200">
+                                <div className="w-24 bg-slate-50 px-2.5 py-1.5 text-[8px] font-black text-slate-500 uppercase border-r border-slate-200 flex items-center">MASA PAJAK</div>
+                                <div className="flex-1 px-3 py-1.5 text-[10px] font-bold text-slate-700 uppercase">{trx.masaPajak}</div>
+                              </div>
+
+                              <div className="grid grid-cols-2 bg-slate-50 border-b border-slate-200">
+                                <div className="text-center py-1 text-[7px] font-black text-slate-400 uppercase border-r border-slate-200">POKOK PKB (RUPIAH)</div>
+                                <div className="text-center py-1 text-[7px] font-black text-slate-400 uppercase">OPSEN PKB (RUPIAH)</div>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 border-b border-slate-200">
+                                <div className="text-center py-2 text-sm font-black text-slate-900 border-r border-slate-200 font-mono">
+                                  {trx.jumlahPkb}
+                                </div>
+                                <div className="text-center py-2 text-sm font-black text-slate-900 font-mono">
+                                  {trx.jumlahOpsenPkb}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50/50">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[8px] font-black text-slate-400 uppercase">TGL. TETAP:</span>
+                                  <span className="text-[10px] font-bold text-slate-600">{trx.tanggalTetap || '-'}</span>
+                                </div>
+                                <div className={`flex items-center gap-1 px-2 py-0.5 rounded border ${trx.isTunggakan ? 'bg-red-50 border-red-100 text-red-600' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                                  <div className={`w-1.5 h-1.5 rounded-full ${trx.isTunggakan ? 'bg-red-500' : 'bg-emerald-500'}`}></div>
+                                  <span className="text-[9px] font-black uppercase tracking-wider">{trx.isTunggakan ? 'Tunggakan' : 'Non Tunggakan'}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                      <div className="p-4">
-                        <div className="flex justify-between items-start mb-3 gap-2">
-                          <div className="min-w-0 flex-1">
-                            <h3 className="font-bold text-slate-800 text-lg truncate">{trx.nomorPolisi}</h3>
-                            <p className="text-sm text-slate-600 truncate">{trx.nama}</p>
-                          </div>
-                          <div className="text-right flex-shrink-0 flex flex-col items-end gap-1.5">
-                            <span className="inline-block px-2 py-1 bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase tracking-wider rounded-md whitespace-nowrap">
-                              {trx.masaPajak}
-                            </span>
-                            <span className={`inline-block text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${trx.isTunggakan ? 'text-red-500' : 'text-emerald-500'}`}>
-                              {trx.isTunggakan ? 'Tunggakan' : 'Non Tunggakan'}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center pt-3 border-t border-slate-200">
-                          <div className="flex-1 text-left pr-3 border-r border-slate-200">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PKB</p>
-                            <p className="text-sm font-semibold text-slate-700">Rp {trx.jumlahPkb}</p>
-                          </div>
-                          <div className="flex-1 text-right pl-3">
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Opsen PKB</p>
-                            <p className="text-sm font-semibold text-slate-700">Rp {trx.jumlahOpsenPkb}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               )}
             </>
           )}
