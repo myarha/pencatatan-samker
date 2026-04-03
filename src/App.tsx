@@ -1164,6 +1164,15 @@ export default function App() {
     return <Login onLogin={(username) => {
       setCurrentUser(username);
       setIsAuthenticated(true);
+      
+      // Reset filters to current month/year on login
+      const now = new Date();
+      setFilterMonth((now.getMonth() + 1).toString().padStart(2, '0'));
+      setFilterYear(now.getFullYear().toString());
+      setFilterDate(null); // Reset to "Semua Data"
+      setSearchQuery(''); // Clear search query
+      setActiveTab('input'); // Reset to input tab
+      
       const expiry = new Date().getTime() + 24 * 60 * 60 * 1000; // 24 jam
       localStorage.setItem('auth_session', JSON.stringify({ username, expiry }));
     }} />;
@@ -2102,6 +2111,14 @@ export default function App() {
                     setTransactions([]);
                     setLogoutConfirm(false);
                     localStorage.removeItem('auth_session');
+                    
+                    // Reset filters on logout
+                    const now = new Date();
+                    setFilterMonth((now.getMonth() + 1).toString().padStart(2, '0'));
+                    setFilterYear(now.getFullYear().toString());
+                    setFilterDate(null);
+                    setSearchQuery('');
+                    setActiveTab('input');
                   }}
                   className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-medium py-3 px-4 rounded-xl transition-colors shadow-sm active:scale-[0.98]"
                 >
