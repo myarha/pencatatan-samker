@@ -274,8 +274,23 @@ export default function App() {
     // Subtitle (Filter info)
     doc.setFontSize(11);
     doc.setTextColor(100, 116, 139); // slate-500
+    // Period Label and Filename logic
+    let periodLabel = "";
+    let fileName = "";
     const monthLabel = MONTHS.find(m => m.value === filterMonth)?.label || 'Semua Bulan';
-    doc.text(`Periode: ${monthLabel} ${filterYear} | SAMSAT ${String(currentUser || '').replace('SAMSAT ', '').toUpperCase()}`, 14, 30);
+    const userName = String(currentUser || '').replace('SAMSAT ', '').trim();
+
+    if (filterDate) {
+      periodLabel = filterDate;
+      // Remove symbols for filename: DD-MM-YYYY -> DDMMYYYY
+      const cleanDate = filterDate.replace(/[-/ ]/g, '');
+      fileName = `Laporan_Transaksi_${userName}_${cleanDate}.pdf`;
+    } else {
+      periodLabel = `${monthLabel} ${filterYear}`;
+      fileName = `Laporan_Transaksi_${userName}_${monthLabel}${filterYear}.pdf`;
+    }
+
+    doc.text(`Periode: ${periodLabel} | SAMSAT ${String(currentUser || '').replace('SAMSAT ', '').toUpperCase()}`, 14, 30);
 
     // Helper to parse date for sorting
     const parseDate = (dateStr: string) => {
@@ -398,7 +413,7 @@ export default function App() {
       margin: { left: 14 }
     });
 
-    doc.save(`Laporan_Transaksi_${monthLabel}_${filterYear}.pdf`);
+    doc.save(fileName);
   };
 
   // Input State
@@ -1207,7 +1222,7 @@ export default function App() {
       <div className="sticky top-0 z-20 bg-white border-b border-slate-100">
         <header className="max-w-md mx-auto px-3 py-3 flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Catatan Transaksi</h1>
+            <h1 className="text-lg font-bold text-slate-800 tracking-tight">Pencatatan Transaksi</h1>
             <div className="flex items-center gap-1 mt-0.5">
               <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                 S<span className="text-red-600">A</span>MSAT
