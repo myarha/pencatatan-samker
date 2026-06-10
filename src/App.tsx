@@ -451,7 +451,7 @@ export default function App() {
     
     const rekapRows = [
       ['Jumlah Transaksi', `${sortedTransactions.length} Unit`],
-      ['Plat Buleleng (U/V)', `${bulelengCount} Unit`],
+      ['Plat Buleleng', `${bulelengCount} Unit`],
       ['Plat Luar Kabupaten', `${luarCount} Unit`],
       ['Jumlah PKB', `Rp ${totalPkb.toLocaleString('id-ID')}`],
       ['Jumlah Opsen PKB', `Rp ${totalOpsenPkb.toLocaleString('id-ID')}`],
