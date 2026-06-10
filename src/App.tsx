@@ -48,9 +48,57 @@ interface TaxData {
   jumlahOpsenPkb: string;
   isTunggakan?: boolean;
   imageData?: string;
+  jenisPlat?: 'buleleng' | 'luar';
 }
 
 type Tab = 'input' | 'history';
+
+const isPlatBuleleng = (nomorPolisi: string, jenisPlatOverride?: 'buleleng' | 'luar'): boolean => {
+  if (jenisPlatOverride === 'buleleng') return true;
+  if (jenisPlatOverride === 'luar') return false;
+  if (!nomorPolisi) return false;
+  const clean = nomorPolisi.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const match = clean.match(/^DK(\d+)([UV])([A-Z]*)$/);
+  if (match) {
+    return true;
+  }
+  return false;
+};
+
+const parseTransaction = (trx: TaxData): TaxData => {
+  let jenisPlat: 'buleleng' | 'luar' | undefined = undefined;
+  let cleanNopol = trx.nomorPolisi || '';
+  if (cleanNopol.includes(' [BULELENG]')) {
+    jenisPlat = 'buleleng';
+    cleanNopol = cleanNopol.replace(' [BULELENG]', '').trim();
+  } else if (cleanNopol.includes(' [LUAR]')) {
+    jenisPlat = 'luar';
+    cleanNopol = cleanNopol.replace(' [LUAR]', '').trim();
+  } else if (cleanNopol) {
+    jenisPlat = isPlatBuleleng(cleanNopol) ? 'buleleng' : 'luar';
+  }
+  return {
+    ...trx,
+    nomorPolisi: cleanNopol,
+    jenisPlat: jenisPlat
+  };
+};
+
+const serializeTransaction = (trx: TaxData): TaxData => {
+  let nopol = trx.nomorPolisi || '';
+  if (trx.jenisPlat === 'buleleng') {
+    nopol = `${nopol} [BULELENG]`;
+  } else if (trx.jenisPlat === 'luar') {
+    nopol = `${nopol} [LUAR]`;
+  }
+  
+  const copy = { ...trx };
+  delete copy.jenisPlat;
+  return {
+    ...copy,
+    nomorPolisi: nopol
+  };
+};
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -136,7 +184,7 @@ export default function App() {
         return;
       }
       if (data) {
-        setTransactions(Array.isArray(data) ? data as TaxData[] : []);
+        setTransactions(Array.isArray(data) ? (data as TaxData[]).map(parseTransaction) : []);
       }
     } catch (err: any) {
       console.error('Error fetching transactions:', err);
@@ -328,6 +376,8 @@ export default function App() {
     let totalOpsenPkb = 0;
     let tunggakanCount = 0;
     let nonTunggakanCount = 0;
+    let bulelengCount = 0;
+    let luarCount = 0;
 
     sortedTransactions.forEach((trx, index) => {
       const rowData = [
@@ -354,6 +404,12 @@ export default function App() {
         tunggakanCount++;
       } else {
         nonTunggakanCount++;
+      }
+
+      if (isPlatBuleleng(trx.nomorPolisi, trx.jenisPlat)) {
+        bulelengCount++;
+      } else {
+        luarCount++;
       }
     });
 
@@ -395,6 +451,8 @@ export default function App() {
     
     const rekapRows = [
       ['Jumlah Transaksi', `${sortedTransactions.length} Unit`],
+      ['Plat Buleleng (U/V)', `${bulelengCount} Unit`],
+      ['Plat Luar Kabupaten', `${luarCount} Unit`],
       ['Jumlah PKB', `Rp ${totalPkb.toLocaleString('id-ID')}`],
       ['Jumlah Opsen PKB', `Rp ${totalOpsenPkb.toLocaleString('id-ID')}`],
       ['Jumlah Tunggakan', `${tunggakanCount} Unit`],
@@ -528,7 +586,7 @@ export default function App() {
       
       const ai = getAIClient();
       const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: 'gemini-3.5-flash',
         contents: {
           parts: [
             {
@@ -538,7 +596,31 @@ export default function App() {
               },
             },
             {
-              text: 'ANALISIS DOKUMEN SSPD/NOTICE PAJAK DENGAN TINGKAT AKURASI TINGGI. \n\n1. VALIDASI: Jika bukan SSPD, set isValidSspd: false.\n2. EKSTRAKSI DATA UTAMA: Ambil Nomor Polisi (tanpa spasi), Nama Pemilik, Masa Pajak, dan Tanggal Tetap (DD-MM-YYYY).\n3. NOMINAL: Ambil PKB dan Opsen PKB dari kolom "JUMLAH" paling kanan.\n4. DETEKSI TUNGGAKAN (KRITIKAL): Periksa kolom "SANKSI ADMINISTRATIF", "DENDA", atau "BUNGA". \n   - Jika ditemukan angka > 0 pada baris PKB, Opsen PKB, atau SWDKLLJ di kolom sanksi, maka WAJIB set isTunggakan: true.\n   - Cari kata kunci seperti "TUNGGAKAN", "DENDA", "SANKSI", atau "BUNGA" yang memiliki nilai nominal.\n   - Jika SEMUA baris pada kolom sanksi bernilai 0 atau kosong, maka set isTunggakan: false.\n   - Teliti setiap baris secara horizontal, jangan sampai angka sanksi yang bergeser terlewat.\n5. FORMAT TANGGAL: Selalu gunakan DD-MM-YYYY.',
+              text: `ANALISIS DOKUMEN PERPAJAKAN KENDARAAN (SSPD, SKPD, SKKP, TBPKP, NOTICE PAJAK, ATAU STNK):
+Tugas Anda adalah mengekstrak informasi perpajakan kendaraan bermotor dengan tingkat akurasi luar biasa dari gambar yang diunggah.
+
+1. VALIDASI DOKUMEN (SANGAT PENTING):
+   - Set isValidSspd: true jika gambar menunjukkan tanda bukti pembayaran pajak kendaraan, lembar Pajak STNK, notice pajak, SKPD (Surat Ketetapan Pajak Daerah), SKKP (Surat Ketetapan Kewajiban Pembayaran), SSPD (Surat Setoran Pajak Daerah), TBPKP (Tanda Bukti Pelunasan Kewajiban Pembayaran), struk pembayaran Samsat, atau dokumen apa pun yang berisi rincian tarif PKB (Pajak Kendaraan Bermotor) dan SWDKLLJ.
+   - JANGAN ketat tentang nama dokumen. Format dokumen di setiap daerah (Bali, Jawa, dll.) berbeda-beda. Selama dokumen tersebut menyangkut penetapan/pembayaran pajak kendaraan (memiliki kolom PKB, SWDKLLJ, Nopol, dsb.), itu adalah dokumen VALID (set isValidSspd: true).
+   - Set isValidSspd: false HANYA jika gambar tersebut benar-benar bukan dokumen pajak kendaraan (misal: foto pemandangan, wajah orang, makanan, struk minimarket, kwitansi umum non-kendaraan).
+
+2. CARA MENEMUKAN DATA UTAMA:
+   - Nomor Polisi (nomorPolisi): Cari teks berlabel "NO. POLISI", "NO. REGRISTRASI", "NO. PLAT", atau "NOMOR POLISI". Biasanya berformat seperti: DK 1234 XY, B 9999 AB, dll. Kembalikan tanpa spasi (contoh: "DK1234XY"). Jika teks bergeser turun ke kolom nama pemilik, gunakan pengetahuannya untuk mengidentifikasi pola plat nomor Indonesia. Jika tidak terbaca sempurna, berikan tebakan terbaik Anda.
+   - Nama Pemilik (nama): Cari teks di sebelah "NAMA PEMILIK", "NAMA", atau "NAMA WAJIB PAJAK". Jika kosong atau tidak terbaca, gunakan "-" atau kosongkan namun tetap set isValidSspd: true.
+   - Masa Pajak (masaPajak): Cari rincian masa berlaku pajak atau durasi (contoh: "1 TAHUN", "1 Tahun 0 Bulan"). Jika kosong, gunakan default "1 TAHUN 0 BULAN".
+   - Tanggal Tetap (tanggalTetap): Cari tanggal penetapan atau tanggal berakhirnya pajak. Biasa terletak di bawah kolom "TGL. TETAP", "TANGGAL PENETAPAN", "TANGGAL STNK", atau "TGL EXP". WAJIB kembalikan dalam format DD-MM-YYYY (contoh jika tertulis "05 Mei 2026" atau "05-05-2026" atau "2026-05-05", konversi menjadi "05-05-2026"). Jika tanggal tidak lengkap atau sulit dibaca, tebak tanggal dari pola kalender atau gunakan tanggal hari ini sebagai cadangan tetapi tetap set isValidSspd: true!
+
+3. CARA MENEMUKAN NOMINAL (PKB & OPSEN):
+   - Jumlah PKB (jumlahPkb): Cari nominal uang pada baris "PKB" atau "Pajak Kendaraan Bermotor" di kolom "JUMLAH", "POKOK", atau kolom nominal paling kanan. Abaikan simbol mata uang Rp atau titik/koma desimal sekunder saat mencocokkan, namun kembalikan dalam format teks berpemisah titik ribuan (contoh: "148.600" atau "1.250.000"). Jika tidak ditemukan atau bernilai nol, tulis "0".
+   - Jumlah Opsen PKB (jumlahOpsenPkb): Cari nominal pada baris "OPSEN PKB", "OPSEN", atau yang sejenis. Jika daerah tersebut belum menerapkan opsen pkb atau tidak tertera di kertas/terbaca sebagai 0, kembalikan "0". Format teks harus berpemisah titik ribuan (contoh: "98.100"). Jangan biarkan kosong jika isValidSspd adalah true; berikan "0" jika tidak ada.
+
+4. DETEKSI TUNGGAKAN & SANKSI (PENTING SEKALI):
+   - Periksa kolom "SANKSI ADM.", "DENDA", "BUNGA", atau "SANKSI" baik pada baris PKB, OPSEN PKB, maupun SWDKLLJ.
+   - Jika ada nominal angka lebih besar dari 0 (misalnya tertera denda PKB 10.000 atau denda SWDKLLJ 32.000), maka Anda WAJIB menyetel isTunggakan: true.
+   - Jika kolom denda/sanksi semuanya bernilai kosong, berisi tanda strip "-", atau bernilai 0, maka setel isTunggakan: false.
+
+5. KEBIJAKAN TOLERANSI:
+   - Jika teks agak buram, miring, ditekuk, atau sedikit terpotong, prioritaskan pembacaan dengan tebakan terbaik Anda ketimbang menganggap dokumen tidak valid. Selama struk tersebut adalah notice pajak, jaga agar isValidSspd tetap TRUE agar pengguna dapat membetulkan bagian yang keliru lewat form edit di aplikasi daripada ditolak keseluruhan.`,
             },
           ],
         },
@@ -549,38 +631,38 @@ export default function App() {
             properties: {
               isValidSspd: {
                 type: Type.BOOLEAN,
-                description: "True jika gambar adalah dokumen SSPD/Notice Pajak kendaraan, False jika bukan."
+                description: "True jika gambar menunjukkan tanda bukti pembayaran pajak kendaraan, SSPD, Notice Pajak, TBPKP, SKKP, SKPD, STNK, atau yang sejenis. False hanya jika gambar bukan dokumen pajak kendaraan."
               },
               nomorPolisi: { 
                 type: Type.STRING, 
-                description: "Nomor Polisi kendaraan TANPA SPASI ATAU TANDA HUBUNG (contoh: DK2925UBO). Jika posisinya bergeser turun ke baris Nama, tetap ambil nilai plat nomornya berdasarkan format huruf-angka-huruf." 
+                description: "Nomor Polisi kendaraan TANPA SPASI ATAU TANDA HUBUNG (contoh: DK2925UBO). Tebak jika tertutupi atau buram." 
               },
               nama: { 
                 type: Type.STRING, 
-                description: "Nama Pemilik" 
+                description: "Nama Pemilik. Jika sulit dibaca, berikan tebakan terbaik atau '-'." 
               },
               masaPajak: { 
                 type: Type.STRING, 
-                description: "Masa Pajak (contoh: 1 Tahun 0 bulan)" 
+                description: "Masa Pajak (contoh: '1 Tahun 0 Bulan' atau '1 TAHUN')." 
               },
               tanggalTetap: {
                 type: Type.STRING,
-                description: "Tanggal Tetap, cari di bagian tengah pada kolom TGL. TETAP. WAJIB FORMAT: DD-MM-YYYY (contoh: 27-02-2026)"
+                description: "Tanggal Tetap/Penetapan Pajak dalam format DD-MM-YYYY (contoh: 27-02-2026). Jika tidak ditemukan atau buram, berikan perkiraan tanggal yang masuk akal atau gunakan tanggal hari ini."
               },
               jumlahPkb: { 
                 type: Type.STRING, 
-                description: "Jumlah total pada baris PKB, ambil angka dari kolom JUMLAH paling kanan (contoh: 148.600)" 
+                description: "Nominal PKB pokok dari kolom JUMLAH/POKOK paling kanan (contoh: '148.600'). Jika kosong atau tidak ada tulis '0'." 
               },
               jumlahOpsenPkb: { 
                 type: Type.STRING, 
-                description: "Jumlah total pada baris OPSEN PKB, ambil angka dari kolom JUMLAH paling kanan (contoh: 98.100)" 
+                description: "Nominal Opsen PKB dari kolom JUMLAH/POKOK paling kanan (contoh: '98.100'). Jika tidak ada, tulis '0'." 
               },
               isTunggakan: {
                 type: Type.BOOLEAN,
-                description: "WAJIB TRUE jika ada nominal > 0 di kolom SANKSI ADMINISTRATIF, DENDA, atau BUNGA. Periksa baris PKB, OPSEN PKB, dan SWDKLLJ. FALSE hanya jika semua sanksi benar-benar 0."
+                description: "Sangat penting: True jika terdapat nominal sanksi denda (>0) pada PKB, Opsen PKB, atau SWDKLLJ. False jika semua sanksi/denda adalah 0 atau strip."
               }
             },
-            required: ["nomorPolisi", "nama", "masaPajak", "tanggalTetap", "jumlahPkb", "jumlahOpsenPkb", "isTunggakan"]
+            required: ["isValidSspd", "nomorPolisi", "nama", "masaPajak", "tanggalTetap", "jumlahPkb", "jumlahOpsenPkb", "isTunggakan"]
           }
         }
       });
@@ -602,6 +684,8 @@ export default function App() {
           if (parsedData.nomorPolisi) {
             parsedData.nomorPolisi = String(parsedData.nomorPolisi).replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
           }
+          // Otomatis menentulkan apakah plat buleleng atau plat luar buleleng dari hasil analisis nopol
+          parsedData.jenisPlat = isPlatBuleleng(parsedData.nomorPolisi) ? 'buleleng' : 'luar';
           setFormData(parsedData as TaxData);
         }
       } else {
@@ -635,7 +719,8 @@ export default function App() {
       masaPajak: '1 TAHUN 0 BULAN',
       jumlahPkb: '',
       jumlahOpsenPkb: '',
-      isTunggakan: false
+      isTunggakan: false,
+      jenisPlat: 'buleleng'
     });
     setManualFormErrors({});
     setShowManualInputModal(true);
@@ -796,7 +881,7 @@ export default function App() {
       }
 
       const transactionToSave = {
-        ...optimisticTransaction,
+        ...serializeTransaction(optimisticTransaction),
         imageData: publicUrl
       };
 
@@ -814,7 +899,7 @@ export default function App() {
         return;
       }
       
-      setTransactions(prev => prev.map(t => t.id === transactionId ? savedData : t));
+      setTransactions(prev => prev.map(t => t.id === transactionId ? parseTransaction(savedData) : t));
       
     } catch (err: any) {
       console.error('Error saving transaction in background:', err);
@@ -1054,7 +1139,7 @@ export default function App() {
         
         const { data: savedData, error: dbError } = await supabase
           .from('transactions')
-          .insert([newTransaction])
+          .insert([serializeTransaction(newTransaction)])
           .select()
           .single();
 
@@ -1068,7 +1153,7 @@ export default function App() {
         }
         
         // 5. Silently update the transaction in state with the real data from DB
-        setTransactions(prev => prev.map(t => t.id === transactionId ? savedData : t));
+        setTransactions(prev => prev.map(t => t.id === transactionId ? parseTransaction(savedData) : t));
         
       } catch (err: any) {
         console.error('Error saving transaction in background:', err);
@@ -1134,16 +1219,17 @@ export default function App() {
 
     setIsUpdating(true);
     try {
+      const serialized = serializeTransaction(editingTransaction);
       const { error } = await supabase
         .from('transactions')
         .update({
-          nomorPolisi: editingTransaction.nomorPolisi,
-          nama: editingTransaction.nama,
-          masaPajak: editingTransaction.masaPajak,
-          tanggalTetap: editingTransaction.tanggalTetap,
-          jumlahPkb: editingTransaction.jumlahPkb,
-          jumlahOpsenPkb: editingTransaction.jumlahOpsenPkb,
-          isTunggakan: editingTransaction.isTunggakan
+          nomorPolisi: serialized.nomorPolisi,
+          nama: serialized.nama,
+          masaPajak: serialized.masaPajak,
+          tanggalTetap: serialized.tanggalTetap,
+          jumlahPkb: serialized.jumlahPkb,
+          jumlahOpsenPkb: serialized.jumlahOpsenPkb,
+          isTunggakan: serialized.isTunggakan
         })
         .eq('id', editingTransaction.id);
 
@@ -1611,13 +1697,23 @@ export default function App() {
                   <InputField 
                     label="Nomor Polisi" 
                     value={formData?.nomorPolisi || ''} 
-                    onChange={(e) => handleInputChange('nomorPolisi', e.target.value)} 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      handleInputChange('nomorPolisi', val);
+                      const detected = isPlatBuleleng(val) ? 'buleleng' : 'luar';
+                      setFormData(prev => prev ? ({ ...prev, jenisPlat: detected }) : null);
+                    }} 
                     error={aiFormErrors.nomorPolisi}
+                  />
+                  <PlateTypeSelect 
+                    value={formData?.jenisPlat}
+                    onChange={(val) => setFormData(prev => prev ? ({ ...prev, jenisPlat: val }) : null)}
                   />
                   <InputField 
                     label="Nama Pemilik" 
                     value={formData?.nama || ''} 
                     onChange={(e) => handleInputChange('nama', e.target.value)} 
+                    placeholder="NAMA WAJIB PAJAK"
                     error={aiFormErrors.nama}
                   />
                   
@@ -1730,6 +1826,40 @@ export default function App() {
                     </div>
                   ) : (
                       <div className="space-y-3 px-1">
+                        {/* Interactive Plate Statistics Card */}
+                        {(() => {
+                          let bulCount = 0;
+                          let lrCount = 0;
+                          filteredTransactions.forEach(trx => {
+                            if (isPlatBuleleng(trx.nomorPolisi, trx.jenisPlat)) {
+                              bulCount++;
+                            } else {
+                              lrCount++;
+                            }
+                          });
+                          
+                          return (
+                            <div className="bg-slate-100 border-2 border-slate-300 rounded-lg p-3 shadow-none flex flex-col gap-2">
+                              <div className="flex justify-between items-center pb-1 border-b border-slate-200">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-slate-800 flex items-center gap-1.5">
+                                  <LayoutGrid className="w-3.5 h-3.5 text-slate-600" />
+                                  REKAPITULASI PLAT NOMOR ({filteredTransactions.length} UNIT)
+                                </span>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-white p-2.5 rounded border border-slate-200 relative overflow-hidden flex flex-col justify-center">
+                                  <span className="text-[8px] font-black tracking-wider text-slate-500 uppercase leading-none mb-1.5">Plat Buleleng</span>
+                                  <span className="text-base font-black text-slate-950 leading-none">{bulCount} <span className="text-[9px] font-bold text-slate-500">Unit</span></span>
+                                </div>
+                                <div className="bg-white p-2.5 rounded border border-slate-200 relative overflow-hidden flex flex-col justify-center">
+                                  <span className="text-[8px] font-black tracking-wider text-slate-500 uppercase leading-none mb-1.5">Plat Luar Kab.</span>
+                                  <span className="text-base font-black text-slate-950 leading-none">{lrCount} <span className="text-[9px] font-bold text-slate-500">Unit</span></span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+
                         {filteredTransactions.map((trx) => (
                           <div key={trx.id} className="bg-white border-2 border-slate-300 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                             {/* SSPD Header Style */}
@@ -1880,14 +2010,24 @@ export default function App() {
               <InputField 
                 label="Nomor Polisi" 
                 value={editingTransaction.nomorPolisi || ''} 
-                onChange={(e) => handleEditInputChange('nomorPolisi', e.target.value)} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  handleEditInputChange('nomorPolisi', val);
+                  const detected = isPlatBuleleng(val) ? 'buleleng' : 'luar';
+                  setEditingTransaction(prev => prev ? ({ ...prev, jenisPlat: detected }) : null);
+                }} 
                 placeholder="Contoh: DK1234AB"
                 error={editFormErrors.nomorPolisi}
+              />
+              <PlateTypeSelect 
+                value={editingTransaction.jenisPlat}
+                onChange={(val) => setEditingTransaction(prev => prev ? ({ ...prev, jenisPlat: val }) : null)}
               />
               <InputField 
                 label="Nama Pemilik" 
                 value={editingTransaction.nama || ''} 
                 onChange={(e) => handleEditInputChange('nama', e.target.value)} 
+                placeholder="NAMA WAJIB PAJAK"
                 error={editFormErrors.nama}
               />
               <InputField 
@@ -1986,14 +2126,24 @@ export default function App() {
               <InputField 
                 label="Nomor Polisi" 
                 value={manualFormData.nomorPolisi || ''} 
-                onChange={(e) => handleManualInputChange('nomorPolisi', e.target.value)} 
+                onChange={(e) => {
+                  const val = e.target.value;
+                  handleManualInputChange('nomorPolisi', val);
+                  const detected = isPlatBuleleng(val) ? 'buleleng' : 'luar';
+                  setManualFormData(prev => ({ ...prev, jenisPlat: detected }));
+                }} 
                 placeholder="Contoh: DK1234AB"
                 error={manualFormErrors.nomorPolisi}
+              />
+              <PlateTypeSelect 
+                value={manualFormData.jenisPlat}
+                onChange={(val) => setManualFormData(prev => ({ ...prev, jenisPlat: val }))}
               />
               <InputField 
                 label="Nama Pemilik" 
                 value={manualFormData.nama || ''} 
                 onChange={(e) => handleManualInputChange('nama', e.target.value)} 
+                placeholder="NAMA WAJIB PAJAK"
                 error={manualFormErrors.nama}
               />
               <InputField 
@@ -2213,6 +2363,35 @@ const AmountField = ({
       />
     </div>
     {error && <p className="text-[10px] text-red-500 mt-1 ml-1 font-medium">{error}</p>}
+  </div>
+);
+
+const PlateTypeSelect = ({
+  value,
+  onChange,
+  label = "Kategori Wilayah Plat"
+}: {
+  value: 'buleleng' | 'luar' | undefined | string;
+  onChange: (val: 'buleleng' | 'luar') => void;
+  label?: string;
+}) => (
+  <div>
+    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 ml-1">
+      {label}
+    </label>
+    <div className="relative">
+      <select
+        value={value || 'luar'}
+        onChange={(e) => onChange(e.target.value as 'buleleng' | 'luar')}
+        className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all text-slate-800 font-bold text-sm appearance-none cursor-pointer"
+      >
+        <option value="buleleng" className="font-medium">Plat Buleleng</option>
+        <option value="luar" className="font-medium">Plat Luar Kabupaten</option>
+      </select>
+      <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-slate-500">
+        <ChevronDown className="w-4 h-4" />
+      </div>
+    </div>
   </div>
 );
 
